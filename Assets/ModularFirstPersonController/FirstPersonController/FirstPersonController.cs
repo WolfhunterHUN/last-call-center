@@ -3,15 +3,18 @@
 // CHANGES || version VERSION
 //
 // "Enable/Disable Headbob, Changed look rotations - should result in reduced camera jitters" || version 1.0.1
+// "Added interaction system with raycast, highlight, crosshair feedback, and UI mode toggle" || version 1.1.0
 
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems; // [ADDED v1.1.0] - Szükséges az EventSystem.SetSelectedGameObject-hez UI módban
+using TMPro; // [ADDED v1.1.0] - Szükséges az interakció szöveg megjelenítéséhez
 
 #if UNITY_EDITOR
-    using UnityEditor;
-    using System.Net;
+using UnityEditor;
+using System.Net;
 #endif
 
 public class FirstPersonController : MonoBehaviour
@@ -131,6 +134,48 @@ public class FirstPersonController : MonoBehaviour
 
     #endregion
 
+    // ============================================================
+    // [ADDED v1.1.0] - Interaction System változók
+    // Raycast alapú interakció rendszer az InteractableObject komponensekkel
+    // ============================================================
+    #region Interaction Variables [ADDED v1.1.0]
+
+    [Header("Interakció rendszer")]
+    public bool enableInteraction = true;
+    public float interactionRange = 5f;
+    public LayerMask interactionLayerMask = ~0; // Minden layer alapból
+    public KeyCode interactKey = KeyCode.E;
+
+    [Header("Interakció UI")]
+    [Tooltip("TextMeshPro szöveg ami megjeleníti az objektum nevét és hint-et")]
+    public TMP_Text interactionText;
+
+    [Tooltip("Crosshair szín amikor interaktálható objektumra nézel")]
+    public Color crosshairInteractColor = Color.green;
+
+    // Internal Variables
+    private InteractableObject currentInteractable = null;
+    private Color crosshairDefaultColor;
+
+    #endregion
+
+    // ============================================================
+    // [ADDED v1.1.0] - UI Mode változók
+    // Kurzor feloldás UI elemek használatához (input field-ek, gombok, stb.)
+    // ============================================================
+    #region UI Mode Variables [ADDED v1.1.0]
+
+    [Header("UI Mód (kurzor feloldás)")]
+    [Tooltip("Gomb amivel feloldhatod a kurzort UI elemek használatához")]
+    public KeyCode uiModeKey = KeyCode.Tab;
+
+    /// <summary>
+    /// Igaz ha a játékos UI módban van (kurzor látható, kamera nem mozog)
+    /// </summary>
+    public bool IsInUIMode { get; private set; } = false;
+
+    #endregion
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
@@ -151,26 +196,33 @@ public class FirstPersonController : MonoBehaviour
 
     void Start()
     {
-        if(lockCursor)
+        if (lockCursor)
         {
             Cursor.lockState = CursorLockMode.Locked;
         }
 
-        if(crosshair)
+        if (crosshair)
         {
             crosshairObject.sprite = crosshairImage;
             crosshairObject.color = crosshairColor;
+            crosshairDefaultColor = crosshairColor; // [ADDED v1.1.0] - Eredeti crosshair szín mentése a visszaállításhoz
         }
         else
         {
             crosshairObject.gameObject.SetActive(false);
         }
 
+        // [ADDED v1.1.0] - Interakció text elrejtése induláskor
+        if (interactionText != null)
+        {
+            interactionText.gameObject.SetActive(false);
+        }
+
         #region Sprint Bar
 
         sprintBarCG = GetComponentInChildren<CanvasGroup>();
 
-        if(useSprintBar)
+        if (useSprintBar)
         {
             sprintBarBG.gameObject.SetActive(true);
             sprintBar.gameObject.SetActive(true);
@@ -184,7 +236,7 @@ public class FirstPersonController : MonoBehaviour
             sprintBarBG.rectTransform.sizeDelta = new Vector3(sprintBarWidth, sprintBarHeight, 0f);
             sprintBar.rectTransform.sizeDelta = new Vector3(sprintBarWidth - 2, sprintBarHeight - 2, 0f);
 
-            if(hideBarWhenFull)
+            if (hideBarWhenFull)
             {
                 sprintBarCG.alpha = 0;
             }
@@ -202,10 +254,34 @@ public class FirstPersonController : MonoBehaviour
 
     private void Update()
     {
+        // ============================================================
+        // [ADDED v1.1.0] - UI Mode Toggle kezelés
+        // Tab-bal váltás UI mód és játék mód között.
+        // UI módban az összes többi input le van tiltva (early return).
+        // ============================================================
+        #region UI Mode Toggle [ADDED v1.1.0]
+
+        if (Input.GetKeyDown(uiModeKey))
+        {
+            ToggleUIMode();
+        }
+
+        // Ha UI módban vagyunk, csak az Escape-et és a Tab-ot figyeljük
+        if (IsInUIMode)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                ExitUIMode();
+            }
+            return; // Ne kezeljünk semmilyen más inputot UI módban
+        }
+
+        #endregion
+
         #region Camera
 
         // Control camera movement
-        if(cameraCanMove)
+        if (cameraCanMove)
         {
             yaw = transform.localEulerAngles.y + Input.GetAxis("Mouse X") * mouseSensitivity;
 
@@ -232,7 +308,7 @@ public class FirstPersonController : MonoBehaviour
         {
             // Changes isZoomed when key is pressed
             // Behavior for toogle zoom
-            if(Input.GetKeyDown(zoomKey) && !holdToZoom && !isSprinting)
+            if (Input.GetKeyDown(zoomKey) && !holdToZoom && !isSprinting)
             {
                 if (!isZoomed)
                 {
@@ -246,24 +322,24 @@ public class FirstPersonController : MonoBehaviour
 
             // Changes isZoomed when key is pressed
             // Behavior for hold to zoom
-            if(holdToZoom && !isSprinting)
+            if (holdToZoom && !isSprinting)
             {
-                if(Input.GetKeyDown(zoomKey))
+                if (Input.GetKeyDown(zoomKey))
                 {
                     isZoomed = true;
                 }
-                else if(Input.GetKeyUp(zoomKey))
+                else if (Input.GetKeyUp(zoomKey))
                 {
                     isZoomed = false;
                 }
             }
 
             // Lerps camera.fieldOfView to allow for a smooth transistion
-            if(isZoomed)
+            if (isZoomed)
             {
                 playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, zoomFOV, zoomStepTime * Time.deltaTime);
             }
-            else if(!isZoomed && !isSprinting)
+            else if (!isZoomed && !isSprinting)
             {
                 playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, fov, zoomStepTime * Time.deltaTime);
             }
@@ -274,15 +350,15 @@ public class FirstPersonController : MonoBehaviour
 
         #region Sprint
 
-        if(enableSprint)
+        if (enableSprint)
         {
-            if(isSprinting)
+            if (isSprinting)
             {
                 isZoomed = false;
                 playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, sprintFOV, sprintFOVStepTime * Time.deltaTime);
 
                 // Drain sprint remaining while sprinting
-                if(!unlimitedSprint)
+                if (!unlimitedSprint)
                 {
                     sprintRemaining -= 1 * Time.deltaTime;
                     if (sprintRemaining <= 0)
@@ -300,7 +376,7 @@ public class FirstPersonController : MonoBehaviour
 
             // Handles sprint cooldown 
             // When sprint remaining == 0 stops sprint ability until hitting cooldown
-            if(isSprintCooldown)
+            if (isSprintCooldown)
             {
                 sprintCooldown -= 1 * Time.deltaTime;
                 if (sprintCooldown <= 0)
@@ -314,7 +390,7 @@ public class FirstPersonController : MonoBehaviour
             }
 
             // Handles sprintBar 
-            if(useSprintBar && !unlimitedSprint)
+            if (useSprintBar && !unlimitedSprint)
             {
                 float sprintRemainingPercent = sprintRemaining / sprintDuration;
                 sprintBar.transform.localScale = new Vector3(sprintRemainingPercent, 1f, 1f);
@@ -326,7 +402,7 @@ public class FirstPersonController : MonoBehaviour
         #region Jump
 
         // Gets input and calls jump method
-        if(enableJump && Input.GetKeyDown(jumpKey) && isGrounded)
+        if (enableJump && Input.GetKeyDown(jumpKey) && isGrounded)
         {
             Jump();
         }
@@ -337,17 +413,17 @@ public class FirstPersonController : MonoBehaviour
 
         if (enableCrouch)
         {
-            if(Input.GetKeyDown(crouchKey) && !holdToCrouch)
+            if (Input.GetKeyDown(crouchKey) && !holdToCrouch)
             {
                 Crouch();
             }
-            
-            if(Input.GetKeyDown(crouchKey) && holdToCrouch)
+
+            if (Input.GetKeyDown(crouchKey) && holdToCrouch)
             {
                 isCrouched = false;
                 Crouch();
             }
-            else if(Input.GetKeyUp(crouchKey) && holdToCrouch)
+            else if (Input.GetKeyUp(crouchKey) && holdToCrouch)
             {
                 isCrouched = true;
                 Crouch();
@@ -358,14 +434,27 @@ public class FirstPersonController : MonoBehaviour
 
         CheckGround();
 
-        if(enableHeadBob)
+        if (enableHeadBob)
         {
             HeadBob();
         }
+
+        // [ADDED v1.1.0] - Interakció kezelés minden frame-ben
+        #region Interaction [ADDED v1.1.0]
+
+        if (enableInteraction)
+        {
+            HandleInteraction();
+        }
+
+        #endregion
     }
 
     void FixedUpdate()
     {
+        // [ADDED v1.1.0] - Ne mozogjon UI módban
+        if (IsInUIMode) return;
+
         #region Movement
 
         if (playerCanMove)
@@ -441,6 +530,201 @@ public class FirstPersonController : MonoBehaviour
         #endregion
     }
 
+    // ============================================================
+    // [ADDED v1.1.0] - Interaction Methods
+    // Raycast-tal detektálja az InteractableObject-eket a kamera közepéről,
+    // kezeli a highlight-ot, crosshair szín változást, UI szöveget, és az input-ot.
+    // ============================================================
+    #region Interaction Methods [ADDED v1.1.0]
+
+    /// <summary>
+    /// Raycast-tal ellenőrzi hogy van-e interaktálható objektum a nézet közepén,
+    /// kezeli a highlight-ot, crosshair szín változást, és az interakció inputot.
+    /// </summary>
+    private void HandleInteraction()
+    {
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+
+        if (Physics.Raycast(ray, out RaycastHit hit, interactionRange, interactionLayerMask))
+        {
+            InteractableObject interactable = hit.collider.GetComponent<InteractableObject>();
+
+            // Ha nincs a collideren, próbáljuk a parent-en (hasznos compound collider-eknél)
+            if (interactable == null)
+            {
+                interactable = hit.collider.GetComponentInParent<InteractableObject>();
+            }
+
+            if (interactable != null && interactable.isInteractable)
+            {
+                // Ellenőrizzük hogy az objektum saját interakciós távolságán belül vagyunk-e
+                float distance = Vector3.Distance(playerCamera.transform.position, hit.point);
+                if (distance <= interactable.interactionDistance)
+                {
+                    // Új objektumra néztünk
+                    if (currentInteractable != interactable)
+                    {
+                        // Előző highlight eltávolítása
+                        if (currentInteractable != null)
+                        {
+                            currentInteractable.RemoveHighlight();
+                        }
+
+                        currentInteractable = interactable;
+                        currentInteractable.Highlight();
+                        Debug.Log($"[Interaction] Raycast talált: {interactable.interactableName} (távolság: {distance:F2}m)"); // [ADDED v1.1.0] - Debug
+                    }
+
+                    // UI frissítés
+                    ShowInteractionUI(interactable);
+                    SetCrosshairColor(crosshairInteractColor);
+
+                    // Interakció: E gomb VAGY bal egérgomb
+                    // [ADDED v1.1.0] - Debug logok az input regisztráláshoz
+                    if (Input.GetKeyDown(interactKey))
+                    {
+                        Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva -> Interact: {interactable.interactableName}");
+                        interactable.Interact();
+                    }
+                    else if (Input.GetMouseButtonDown(0))
+                    {
+                        Debug.Log($"[Interaction] Bal egérgomb lenyomva -> Interact: {interactable.interactableName}");
+                        interactable.Interact();
+                    }
+
+                    return; // Találtunk interaktálhatót, ne menjünk tovább
+                }
+            }
+        }
+
+        // Nincs interaktálható objektum a nézetben
+        // [ADDED v1.1.0] - Debug: ha kattintottunk/E-t nyomtunk de nem volt interaktálható
+        if (Input.GetKeyDown(interactKey))
+        {
+            Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva, de nincs interaktálható objektum a nézetben");
+        }
+        else if (Input.GetMouseButtonDown(0))
+        {
+            Debug.Log("[Interaction] Bal egérgomb lenyomva, de nincs interaktálható objektum a nézetben");
+        }
+        ClearInteraction();
+    }
+
+    /// <summary>
+    /// Megjeleníti az interakció UI szöveget
+    /// </summary>
+    private void ShowInteractionUI(InteractableObject interactable)
+    {
+        if (interactionText != null)
+        {
+            interactionText.gameObject.SetActive(true);
+            interactionText.text = $"<b>{interactable.interactableName}</b>\n<size=80%>{interactable.interactHint}</size>";
+        }
+    }
+
+    /// <summary>
+    /// Elrejti az interakció UI-t és visszaállítja a crosshair-t
+    /// </summary>
+    private void ClearInteraction()
+    {
+        if (currentInteractable != null)
+        {
+            currentInteractable.RemoveHighlight();
+            currentInteractable = null;
+        }
+
+        if (interactionText != null)
+        {
+            interactionText.gameObject.SetActive(false);
+        }
+
+        SetCrosshairColor(crosshairDefaultColor);
+    }
+
+    /// <summary>
+    /// Crosshair szín beállítása
+    /// </summary>
+    private void SetCrosshairColor(Color color)
+    {
+        if (crosshair && crosshairObject != null)
+        {
+            crosshairObject.color = color;
+        }
+    }
+
+    #endregion
+
+    // ============================================================
+    // [ADDED v1.1.0] - UI Mode Methods
+    // Kurzor feloldás és kamera/mozgás letiltás UI elemek használatához.
+    // Tab-bal váltható, Escape-pel is kiléphet. 
+    // Használd input field-ek, monitorok, UI panelek interakciójához.
+    // ============================================================
+    #region UI Mode Methods [ADDED v1.1.0]
+
+    /// <summary>
+    /// Váltás UI mód és játék mód között.
+    /// UI módban a kurzor látható és a kamera/mozgás le van tiltva.
+    /// Használd input field-ek, monitorok, UI panelek interakciójához.
+    /// </summary>
+    public void ToggleUIMode()
+    {
+        if (IsInUIMode)
+        {
+            ExitUIMode();
+        }
+        else
+        {
+            EnterUIMode();
+        }
+    }
+
+    /// <summary>
+    /// Belépés UI módba - kurzor megjelenik, kamera és mozgás leáll
+    /// </summary>
+    public void EnterUIMode()
+    {
+        IsInUIMode = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        cameraCanMove = false;
+        playerCanMove = false;
+        Debug.Log("[UI Mode] BELÉPÉS - kurzor feloldva, kamera és mozgás letiltva"); // [ADDED v1.1.0] - Debug
+
+        // Crosshair elrejtése UI módban
+        if (crosshairObject != null)
+        {
+            crosshairObject.gameObject.SetActive(false);
+        }
+
+        // Interakció UI elrejtése
+        ClearInteraction();
+    }
+
+    /// <summary>
+    /// Kilépés UI módból - kurzor eltűnik, kamera és mozgás visszaáll
+    /// </summary>
+    public void ExitUIMode()
+    {
+        IsInUIMode = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        cameraCanMove = true;
+        playerCanMove = true;
+        Debug.Log("[UI Mode] KILÉPÉS - kurzor zárolva, kamera és mozgás visszaállítva"); // [ADDED v1.1.0] - Debug
+
+        // Crosshair visszaállítása
+        if (crosshair && crosshairObject != null)
+        {
+            crosshairObject.gameObject.SetActive(true);
+        }
+
+        // Deselect bármi amit kiválasztottunk (input field-ek, stb.)
+        EventSystem.current?.SetSelectedGameObject(null);
+    }
+
+    #endregion
+
     // Sets isGrounded based on a raycast sent straigth down from the player object
     private void CheckGround()
     {
@@ -469,7 +753,7 @@ public class FirstPersonController : MonoBehaviour
         }
 
         // When crouched and using toggle system, will uncrouch for a jump
-        if(isCrouched && !holdToCrouch)
+        if (isCrouched && !holdToCrouch)
         {
             Crouch();
         }
@@ -479,7 +763,7 @@ public class FirstPersonController : MonoBehaviour
     {
         // Stands player up to full height
         // Brings walkSpeed back up to original speed
-        if(isCrouched)
+        if (isCrouched)
         {
             transform.localScale = new Vector3(originalScale.x, originalScale.y, originalScale.z);
             walkSpeed /= speedReduction;
@@ -499,10 +783,10 @@ public class FirstPersonController : MonoBehaviour
 
     private void HeadBob()
     {
-        if(isWalking)
+        if (isWalking)
         {
             // Calculates HeadBob speed during sprint
-            if(isSprinting)
+            if (isSprinting)
             {
                 timer += Time.deltaTime * (bobSpeed + sprintSpeed);
             }
@@ -532,9 +816,9 @@ public class FirstPersonController : MonoBehaviour
 
 // Custom Editor
 #if UNITY_EDITOR
-    [CustomEditor(typeof(FirstPersonController)), InitializeOnLoadAttribute]
-    public class FirstPersonControllerEditor : Editor
-    {
+[CustomEditor(typeof(FirstPersonController)), InitializeOnLoadAttribute]
+public class FirstPersonControllerEditor : Editor
+{
     FirstPersonController fpc;
     SerializedObject SerFPC;
 
@@ -551,7 +835,7 @@ public class FirstPersonController : MonoBehaviour
         EditorGUILayout.Space();
         GUILayout.Label("Modular First Person Controller", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 16 });
         GUILayout.Label("By Jess Case", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal, fontSize = 12 });
-        GUILayout.Label("version 1.0.1", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal, fontSize = 12 });
+        GUILayout.Label("version 1.1.0 - Interaction Update", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal, fontSize = 12 }); // [MODIFIED v1.1.0] - Verzió szám frissítve
         EditorGUILayout.Space();
 
         #region Camera Setup
@@ -561,7 +845,7 @@ public class FirstPersonController : MonoBehaviour
         EditorGUILayout.Space();
 
         fpc.playerCamera = (Camera)EditorGUILayout.ObjectField(new GUIContent("Camera", "Camera attached to the controller."), fpc.playerCamera, typeof(Camera), true);
-        fpc.fov = EditorGUILayout.Slider(new GUIContent("Field of View", "The camera’s view angle. Changes the player camera directly."), fpc.fov, fpc.zoomFOV, 179f);
+        fpc.fov = EditorGUILayout.Slider(new GUIContent("Field of View", "The camera's view angle. Changes the player camera directly."), fpc.fov, fpc.zoomFOV, 179f);
         fpc.cameraCanMove = EditorGUILayout.ToggleLeft(new GUIContent("Enable Camera Rotation", "Determines if the camera is allowed to move."), fpc.cameraCanMove);
 
         GUI.enabled = fpc.cameraCanMove;
@@ -575,18 +859,18 @@ public class FirstPersonController : MonoBehaviour
         fpc.crosshair = EditorGUILayout.ToggleLeft(new GUIContent("Auto Crosshair", "Determines if the basic crosshair will be turned on, and sets is to the center of the screen."), fpc.crosshair);
 
         // Only displays crosshair options if crosshair is enabled
-        if(fpc.crosshair) 
-        { 
-            EditorGUI.indentLevel++; 
-            EditorGUILayout.BeginHorizontal(); 
-            EditorGUILayout.PrefixLabel(new GUIContent("Crosshair Image", "Sprite to use as the crosshair.")); 
+        if (fpc.crosshair)
+        {
+            EditorGUI.indentLevel++;
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel(new GUIContent("Crosshair Image", "Sprite to use as the crosshair."));
             fpc.crosshairImage = (Sprite)EditorGUILayout.ObjectField(fpc.crosshairImage, typeof(Sprite), false);
             EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.BeginHorizontal();
             fpc.crosshairColor = EditorGUILayout.ColorField(new GUIContent("Crosshair Color", "Determines the color of the crosshair."), fpc.crosshairColor);
             EditorGUILayout.EndHorizontal();
-            EditorGUI.indentLevel--; 
+            EditorGUI.indentLevel--;
         }
 
         EditorGUILayout.Space();
@@ -644,7 +928,7 @@ public class FirstPersonController : MonoBehaviour
         fpc.useSprintBar = EditorGUILayout.ToggleLeft(new GUIContent("Use Sprint Bar", "Determines if the default sprint bar will appear on screen."), fpc.useSprintBar);
 
         // Only displays sprint bar options if sprint bar is enabled
-        if(fpc.useSprintBar)
+        if (fpc.useSprintBar)
         {
             EditorGUI.indentLevel++;
 
@@ -718,7 +1002,7 @@ public class FirstPersonController : MonoBehaviour
         EditorGUILayout.Space();
 
         fpc.enableHeadBob = EditorGUILayout.ToggleLeft(new GUIContent("Enable Head Bob", "Determines if the camera will bob while the player is walking."), fpc.enableHeadBob);
-        
+
 
         GUI.enabled = fpc.enableHeadBob;
         fpc.joint = (Transform)EditorGUILayout.ObjectField(new GUIContent("Camera Joint", "Joint object position is moved while head bob is active."), fpc.joint, typeof(Transform), true);
@@ -728,8 +1012,54 @@ public class FirstPersonController : MonoBehaviour
 
         #endregion
 
+        // ============================================================
+        // [ADDED v1.1.0] - Interaction Setup szekció a Custom Editorban
+        // ============================================================
+        #region Interaction Setup [ADDED v1.1.0]
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("Interaction Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.enableInteraction = EditorGUILayout.ToggleLeft(new GUIContent("Enable Interaction", "Determines if the player can interact with InteractableObject components."), fpc.enableInteraction);
+
+        GUI.enabled = fpc.enableInteraction;
+        fpc.interactionRange = EditorGUILayout.Slider(new GUIContent("Interaction Range", "Maximum raycast distance for detecting interactable objects."), fpc.interactionRange, 1f, 20f);
+        fpc.interactKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("Interact Key", "Key used to interact (left mouse click also works)."), fpc.interactKey);
+
+        EditorGUILayout.Space();
+        fpc.interactionText = (TMP_Text)EditorGUILayout.ObjectField(new GUIContent("Interaction Text", "TextMeshPro text element for displaying interaction prompts."), fpc.interactionText, typeof(TMP_Text), true);
+        fpc.crosshairInteractColor = EditorGUILayout.ColorField(new GUIContent("Crosshair Interact Color", "Color the crosshair changes to when looking at an interactable."), fpc.crosshairInteractColor);
+
+        // Layer mask - SerializedProperty-vel kell kezelni
+        SerializedProperty layerMaskProp = SerFPC.FindProperty("interactionLayerMask");
+        if (layerMaskProp != null)
+        {
+            EditorGUILayout.PropertyField(layerMaskProp, new GUIContent("Interaction Layers", "Which layers to check for interactable objects."));
+        }
+        GUI.enabled = true;
+
+        #endregion
+
+        // ============================================================
+        // [ADDED v1.1.0] - UI Mode Setup szekció a Custom Editorban
+        // ============================================================
+        #region UI Mode Setup [ADDED v1.1.0]
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("UI Mode Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.uiModeKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("UI Mode Key", "Key to toggle UI mode (unlocks cursor for clicking UI elements, input fields, etc.)"), fpc.uiModeKey);
+
+        EditorGUILayout.HelpBox("UI Mode unlocks the cursor and disables camera/movement so the player can interact with UI elements like input fields, buttons, etc. Press the key again or Escape to exit.", MessageType.Info);
+
+        #endregion
+
         //Sets any changes from the prefab
-        if(GUI.changed)
+        if (GUI.changed)
         {
             EditorUtility.SetDirty(fpc);
             Undo.RecordObject(fpc, "FPC Change");
