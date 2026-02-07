@@ -561,23 +561,30 @@ public class FirstPersonController : MonoBehaviour
 
             if (interactable != null && interactable.isInteractable)
             {
-                // Ellenőrizzük hogy az objektum saját interakciós távolságán belül vagyunk-e
-                float distance = Vector3.Distance(playerCamera.transform.position, hit.point);
+                // [FIX v1.2.1] - Collider legközelebbi pontjával mérünk, nem hit.point-tal
+                // Így az interactionDistance és exitRangeDistance konzisztensen működik
+                float distance = GetDistanceToInteractable(interactable);
                 if (distance <= interactable.interactionDistance)
                 {
                     // Új objektumra néztünk
                     if (currentInteractable != interactable)
                     {
-                        // Előző highlight és ExitRange eltávolítása
+                        // Előző highlight eltávolítása
+                        // [FIX v1.2.1] - Elnézéskor NEM hívunk ExitRange-et, csak ha tényleg kilépünk a hatótávból
                         if (currentInteractable != null)
                         {
                             currentInteractable.RemoveHighlight();
-                            currentInteractable.ExitRange(); // [ADDED v1.1.0] - Előző objektum hatótáv elhagyás
+                            // Csak akkor hívjuk az ExitRange-et ha tényleg kívül vagyunk a hatótávon
+                            float prevDistance = GetDistanceToInteractable(currentInteractable);
+                            if (prevDistance > currentInteractable.EffectiveExitRange)
+                            {
+                                currentInteractable.ExitRange();
+                            }
                         }
 
                         currentInteractable = interactable;
                         currentInteractable.Highlight();
-                        Debug.Log($"[Interaction] Raycast talált: {interactable.interactableName} (távolság: {distance:F2}m)"); // [ADDED v1.1.0] - Debug
+                        Debug.Log($"[Interaction] Raycast talált: {interactable.interactableName} (távolság: {distance:F2}m)");
                     }
 
                     // UI frissítés
@@ -585,7 +592,6 @@ public class FirstPersonController : MonoBehaviour
                     SetCrosshairColor(crosshairInteractColor);
 
                     // Interakció: E gomb VAGY bal egérgomb
-                    // [ADDED v1.1.0] - Debug logok az input regisztráláshoz
                     if (Input.GetKeyDown(interactKey))
                     {
                         Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva -> Interact: {interactable.interactableName}");
@@ -602,17 +608,35 @@ public class FirstPersonController : MonoBehaviour
             }
         }
 
-        // Nincs interaktálható objektum a nézetben
-        // [ADDED v1.1.0] - Debug: ha kattintottunk/E-t nyomtunk de nem volt interaktálható
-        if (Input.GetKeyDown(interactKey))
+        // Nincs interaktálható objektum a nézetben (elnéztünk vagy túl messze vagyunk)
+        // [FIX v1.2.1] - Elnézéskor ellenőrizzük, hogy a hatótávon belül vagyunk-e még
+        if (currentInteractable != null)
         {
-            Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva, de nincs interaktálható objektum a nézetben");
+            float distToCurrentInteractable = GetDistanceToInteractable(currentInteractable);
+            if (distToCurrentInteractable > currentInteractable.EffectiveExitRange)
+            {
+                // Tényleg kívül vagyunk a hatótávon -> ExitRange
+                if (Input.GetKeyDown(interactKey))
+                {
+                    Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva, de nincs interaktálható objektum a nézetben");
+                }
+                else if (Input.GetMouseButtonDown(0))
+                {
+                    Debug.Log("[Interaction] Bal egérgomb lenyomva, de nincs interaktálható objektum a nézetben");
+                }
+                ClearInteraction();
+            }
+            else
+            {
+                // Még a hatótávon belül vagyunk, csak elnéztünk -> highlight levétel, de NEM ExitRange
+                currentInteractable.RemoveHighlight();
+                if (interactionText != null)
+                {
+                    interactionText.gameObject.SetActive(false);
+                }
+                SetCrosshairColor(crosshairDefaultColor);
+            }
         }
-        else if (Input.GetMouseButtonDown(0))
-        {
-            Debug.Log("[Interaction] Bal egérgomb lenyomva, de nincs interaktálható objektum a nézetben");
-        }
-        ClearInteraction();
     }
 
     /// <summary>
@@ -670,7 +694,8 @@ public class FirstPersonController : MonoBehaviour
     {
         if (currentInteractable == null) return;
 
-        float distance = Vector3.Distance(playerCamera.transform.position, currentInteractable.transform.position);
+        // [FIX v1.2.1] - Collider legközelebbi pontjával mérünk
+        float distance = GetDistanceToInteractable(currentInteractable);
         float exitDistance = currentInteractable.EffectiveExitRange;
 
         if (distance > exitDistance)
@@ -685,6 +710,25 @@ public class FirstPersonController : MonoBehaviour
 
             ClearInteraction();
         }
+    }
+
+    // [ADDED v1.2.1] - Konzisztens távolságmérés helper
+    /// <summary>
+    /// Kiszámítja a távolságot a kamera és az interaktálható objektum között.
+    /// A collider legközelebbi pontját használja (ClosestPoint), nem a transform.position-t,
+    /// így a mért távolság megegyezik azzal amit a raycast hit.point is mérne.
+    /// Ez megoldja azt a problémát amikor a collider felszíne közel van de a pivot messze.
+    /// </summary>
+    private float GetDistanceToInteractable(InteractableObject interactable)
+    {
+        Collider col = interactable.GetComponentInChildren<Collider>();
+        if (col != null)
+        {
+            Vector3 closestPoint = col.ClosestPoint(playerCamera.transform.position);
+            return Vector3.Distance(playerCamera.transform.position, closestPoint);
+        }
+        // Fallback ha nincs collider (nem kellene előfordulnia)
+        return Vector3.Distance(playerCamera.transform.position, interactable.transform.position);
     }
 
     #endregion

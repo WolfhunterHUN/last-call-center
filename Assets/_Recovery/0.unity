@@ -718,61 +718,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 807364850}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &37354545
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 37354547}
-  - component: {fileID: 37354546}
-  m_Layer: 0
-  m_Name: StressBarUI
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &37354546
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 37354545}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4efe53c845e2cb42916370ef2c4ff90, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::StressBarUI
-  fillImage: {fileID: 0}
-  backgroundImage: {fileID: 0}
-  stressText: {fileID: 0}
-  autoCreateUI: 1
-  normalColor: {r: 0.2, g: 0.8, b: 0.2, a: 0.9}
-  warningColor: {r: 1, g: 0.8, b: 0, a: 0.9}
-  dangerColor: {r: 1, g: 0.15, b: 0.15, a: 0.9}
-  bgColor: {r: 0.1, g: 0.1, b: 0.1, a: 0.6}
-  lerpSpeed: 5
-  pulseInDanger: 1
-  pulseSpeed: 3
---- !u!4 &37354547
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 37354545}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &59085341
 GameObject:
   m_ObjectHideFlags: 0
@@ -2106,7 +2051,6 @@ GameObject:
   - component: {fileID: 174939750}
   - component: {fileID: 174939751}
   - component: {fileID: 174939752}
-  - component: {fileID: 174939753}
   m_Layer: 0
   m_Name: Test Character 1
   m_TagString: Untagged
@@ -2144,19 +2088,7 @@ MonoBehaviour:
   projectId: cmlarlxx90001ld04qwvdwj0o
   OnChatResponseReceived:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 174939753}
-        m_TargetAssemblyTypeName: NeocortexScoreTracker, Assembly-CSharp
-        m_MethodName: OnChatResponse
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnAudioResponseReceived:
     m_PersistentCalls:
       m_Calls: []
@@ -2183,27 +2115,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VideoNeocortexStarter
   smartAgent: {fileID: 174939751}
   sendDelay: 0.1
---- !u!114 &174939753
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 174939746}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83d1f83821e1b704c8a66e00554f9c7d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NeocortexScoreTracker
-  stressPerResponse: 2
-  stressPositive: 20
-  stressNegative: 20
-  onPositiveReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  onNegativeReceived:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1001 &181283493
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2693,65 +2604,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 807364850}
   m_LocalEulerAnglesHint: {x: 0, y: -15.265, z: 0}
---- !u!1 &189766500
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 189766502}
-  - component: {fileID: 189766501}
-  m_Layer: 0
-  m_Name: Stressmanager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &189766501
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 189766500}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ee1761e3fd01c1e4db53f6069017a9a0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::StressManager
-  startingStress: 0
-  maxStress: 100
-  dangerThreshold: 80
-  onStressChanged:
-    m_PersistentCalls:
-      m_Calls: []
-  onDangerZoneEntered:
-    m_PersistentCalls:
-      m_Calls: []
-  onDangerZoneExited:
-    m_PersistentCalls:
-      m_Calls: []
-  onGameOver:
-    m_PersistentCalls:
-      m_Calls: []
---- !u!4 &189766502
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 189766500}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0.41690895, y: -0.14844431, z: 0.06922024, w: 0.89406925}
-  m_LocalPosition: {x: 4.01, y: 7.08, z: -14.31}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!43 &197237979
 Mesh:
   m_ObjectHideFlags: 0
@@ -9755,7 +9607,6 @@ GameObject:
   - component: {fileID: 674198248}
   - component: {fileID: 674198247}
   - component: {fileID: 674198250}
-  - component: {fileID: 674198251}
   m_Layer: 0
   m_Name: Test Character 4
   m_TagString: Untagged
@@ -9802,19 +9653,7 @@ MonoBehaviour:
       m_Calls: []
   OnAudioResponseReceived:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 674198251}
-        m_TargetAssemblyTypeName: NeocortexScoreTracker, Assembly-CSharp
-        m_MethodName: OnAudioResponse
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnTranscriptionReceived:
     m_PersistentCalls:
       m_Calls: []
@@ -9854,27 +9693,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VideoNeocortexStarter
   smartAgent: {fileID: 674198248}
   sendDelay: 0
---- !u!114 &674198251
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 674198246}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83d1f83821e1b704c8a66e00554f9c7d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NeocortexScoreTracker
-  stressPerResponse: 2
-  stressPositive: 20
-  stressNegative: 20
-  onPositiveReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  onNegativeReceived:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &675132625
 GameObject:
   m_ObjectHideFlags: 0
@@ -14671,7 +14489,7 @@ MonoBehaviour:
   interactableName: Objektum
   interactHint: Nyomj E-t vagy kattints
   interactionDistance: 2
-  exitRangeDistance: 1
+  exitRangeDistance: 0
   isInteractable: 1
   highlightOnLook: 1
   highlightColor: {r: 1, g: 0.92, b: 0.016, a: 1}
@@ -16556,7 +16374,6 @@ GameObject:
   - component: {fileID: 1069017097}
   - component: {fileID: 1069017096}
   - component: {fileID: 1069017099}
-  - component: {fileID: 1069017100}
   m_Layer: 0
   m_Name: Test Character 5
   m_TagString: Untagged
@@ -16603,19 +16420,7 @@ MonoBehaviour:
       m_Calls: []
   OnAudioResponseReceived:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1069017100}
-        m_TargetAssemblyTypeName: NeocortexScoreTracker, Assembly-CSharp
-        m_MethodName: OnAudioResponse
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnTranscriptionReceived:
     m_PersistentCalls:
       m_Calls: []
@@ -16655,27 +16460,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VideoNeocortexStarter
   smartAgent: {fileID: 1069017097}
   sendDelay: 0
---- !u!114 &1069017100
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1069017095}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83d1f83821e1b704c8a66e00554f9c7d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NeocortexScoreTracker
-  stressPerResponse: 2
-  stressPositive: 20
-  stressNegative: 20
-  onPositiveReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  onNegativeReceived:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1079118048
 GameObject:
   m_ObjectHideFlags: 0
@@ -16861,7 +16645,7 @@ MonoBehaviour:
   interactableName: Objektum
   interactHint: Nyomj E-t vagy kattints
   interactionDistance: 2
-  exitRangeDistance: 1
+  exitRangeDistance: 0
   isInteractable: 1
   highlightOnLook: 1
   highlightColor: {r: 1, g: 0.92, b: 0.016, a: 1}
@@ -29180,7 +28964,6 @@ GameObject:
   - component: {fileID: 1707109544}
   - component: {fileID: 1707109545}
   - component: {fileID: 1707109546}
-  - component: {fileID: 1707109547}
   m_Layer: 0
   m_Name: Test Character 2
   m_TagString: Untagged
@@ -29218,19 +29001,7 @@ MonoBehaviour:
   projectId: cmlarlxx90001ld04qwvdwj0o
   OnChatResponseReceived:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1707109547}
-        m_TargetAssemblyTypeName: NeocortexScoreTracker, Assembly-CSharp
-        m_MethodName: OnChatResponse
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnAudioResponseReceived:
     m_PersistentCalls:
       m_Calls: []
@@ -29257,27 +29028,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VideoNeocortexStarter
   smartAgent: {fileID: 1707109545}
   sendDelay: 1
---- !u!114 &1707109547
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1707109543}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83d1f83821e1b704c8a66e00554f9c7d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NeocortexScoreTracker
-  stressPerResponse: 2
-  stressPositive: 20
-  stressNegative: 20
-  onPositiveReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  onNegativeReceived:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1719453121
 GameObject:
   m_ObjectHideFlags: 0
@@ -31032,7 +30782,6 @@ GameObject:
   - component: {fileID: 1850851988}
   - component: {fileID: 1850851987}
   - component: {fileID: 1850851990}
-  - component: {fileID: 1850851991}
   m_Layer: 0
   m_Name: Test Character 3
   m_TagString: Untagged
@@ -31079,19 +30828,7 @@ MonoBehaviour:
       m_Calls: []
   OnAudioResponseReceived:
     m_PersistentCalls:
-      m_Calls:
-      - m_Target: {fileID: 1850851991}
-        m_TargetAssemblyTypeName: NeocortexScoreTracker, Assembly-CSharp
-        m_MethodName: OnAudioResponse
-        m_Mode: 0
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 0
-        m_CallState: 2
+      m_Calls: []
   OnTranscriptionReceived:
     m_PersistentCalls:
       m_Calls: []
@@ -31131,27 +30868,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VideoNeocortexStarter
   smartAgent: {fileID: 1850851988}
   sendDelay: 0
---- !u!114 &1850851991
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1850851985}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83d1f83821e1b704c8a66e00554f9c7d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NeocortexScoreTracker
-  stressPerResponse: 2
-  stressPositive: 20
-  stressNegative: 20
-  onPositiveReceived:
-    m_PersistentCalls:
-      m_Calls: []
-  onNegativeReceived:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1856263301
 GameObject:
   m_ObjectHideFlags: 0
@@ -35550,7 +35266,5 @@ SceneRoots:
   - {fileID: 469363830}
   - {fileID: 1016355526}
   - {fileID: 246906720}
-  - {fileID: 37354547}
   - {fileID: 1761744367}
   - {fileID: 330889818}
-  - {fileID: 189766502}
