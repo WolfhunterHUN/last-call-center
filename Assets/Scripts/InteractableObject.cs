@@ -17,6 +17,10 @@ public class InteractableObject : MonoBehaviour
     [Tooltip("Maximum távolság ahonnan interaktálhatsz vele")]
     public float interactionDistance = 3f;
 
+    // [ADDED v1.2.0] - Külön kilépési hatótáv
+    [Tooltip("Maximum távolság ami felett az onExitRange event triggerelődik. Állítsd nagyobbra mint az interactionDistance-t ha nem akarod hogy azonnal triggerelődjön. 0 = ugyanaz mint az interactionDistance.")]
+    public float exitRangeDistance = 0f;
+
     [Tooltip("Aktiválható-e jelenleg ez az objektum")]
     public bool isInteractable = true;
 
@@ -36,13 +40,18 @@ public class InteractableObject : MonoBehaviour
     public UnityEvent onInteract;
 
     // [ADDED v1.1.0] - Hatótávból kilépés esemény
-    [Tooltip("Ez hívódik meg amikor elhagyod az interakciós hatótávot vagy elnézel az objektumról. Használd UI mód visszavonásához, animációk leállításához, stb.")]
+    [Tooltip("Ez hívódik meg amikor elhagyod az interakciós hatótávot. Használd UI mód visszavonásához, animációk leállításához, stb.")]
     public UnityEvent onExitRange;
 
     // Privát változók
     private Renderer objectRenderer;
     private Color originalColor;
     private bool isHighlighted = false;
+
+    /// <summary>
+    /// Az effektív kilépési hatótáv. Ha exitRangeDistance == 0, az interactionDistance-t használja.
+    /// </summary>
+    public float EffectiveExitRange => exitRangeDistance > 0f ? exitRangeDistance : interactionDistance; // [ADDED v1.2.0]
 
     void Start()
     {
@@ -100,12 +109,12 @@ public class InteractableObject : MonoBehaviour
 
     // [ADDED v1.1.0] - Hatótávból kilépés
     /// <summary>
-    /// Meghívódik amikor a játékos elhagyja az interakciós hatótávot vagy elnéz az objektumról.
+    /// Meghívódik amikor a játékos elhagyja az interakciós hatótávot.
     /// Invoke-olja az onExitRange eseményt.
     /// </summary>
     public void ExitRange()
     {
-        Debug.Log($"[Interaction] Hatótáv elhagyva: {interactableName}"); // [ADDED v1.1.0] - Debug
+        Debug.Log($"[Interaction] Hatótáv elhagyva: {interactableName}");
         onExitRange?.Invoke();
     }
 

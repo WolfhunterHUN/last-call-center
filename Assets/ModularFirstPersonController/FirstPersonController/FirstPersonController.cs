@@ -269,6 +269,10 @@ public class FirstPersonController : MonoBehaviour
         // Ha UI módban vagyunk, csak az Escape-et és a Tab-ot figyeljük
         if (IsInUIMode)
         {
+            // [ADDED v1.2.0] - Hatótáv ellenőrzés UI módban is fut
+            // Ha a játékos elsétál az objektumtól UI módban, az onExitRange triggerelődik
+            CheckExitRange();
+
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 ExitUIMode();
@@ -564,10 +568,11 @@ public class FirstPersonController : MonoBehaviour
                     // Új objektumra néztünk
                     if (currentInteractable != interactable)
                     {
-                        // Előző highlight eltávolítása
+                        // Előző highlight és ExitRange eltávolítása
                         if (currentInteractable != null)
                         {
                             currentInteractable.RemoveHighlight();
+                            currentInteractable.ExitRange(); // [ADDED v1.1.0] - Előző objektum hatótáv elhagyás
                         }
 
                         currentInteractable = interactable;
@@ -623,13 +628,15 @@ public class FirstPersonController : MonoBehaviour
     }
 
     /// <summary>
-    /// Elrejti az interakció UI-t és visszaállítja a crosshair-t
+    /// Elrejti az interakció UI-t és visszaállítja a crosshair-t.
+    /// Ha volt aktív interaktálható, meghívja az ExitRange() eseményét.
     /// </summary>
     private void ClearInteraction()
     {
         if (currentInteractable != null)
         {
             currentInteractable.RemoveHighlight();
+            currentInteractable.ExitRange(); // [ADDED v1.1.0] - Hatótáv elhagyás esemény meghívása
             currentInteractable = null;
         }
 
@@ -649,6 +656,34 @@ public class FirstPersonController : MonoBehaviour
         if (crosshair && crosshairObject != null)
         {
             crosshairObject.color = color;
+        }
+    }
+
+    // [ADDED v1.2.0] - Folyamatos hatótáv ellenőrzés (UI módban is működik)
+    /// <summary>
+    /// Ellenőrzi hogy a játékos még az aktuális interaktálható objektum
+    /// exitRangeDistance hatótávján belül van-e. Ha nem, meghívja az ExitRange()-et
+    /// és kilép UI módból. Ez a metódus UI módban is fut, így ha a játékos
+    /// elsétál a terminál/telefon mellől, automatikusan deaktiválódik.
+    /// </summary>
+    private void CheckExitRange()
+    {
+        if (currentInteractable == null) return;
+
+        float distance = Vector3.Distance(playerCamera.transform.position, currentInteractable.transform.position);
+        float exitDistance = currentInteractable.EffectiveExitRange;
+
+        if (distance > exitDistance)
+        {
+            Debug.Log($"[Interaction] Kilépési hatótávon kívül: {currentInteractable.interactableName} (távolság: {distance:F2}m > exitRange: {exitDistance:F2}m)");
+
+            // UI módból kilépés ha aktív
+            if (IsInUIMode)
+            {
+                ExitUIMode();
+            }
+
+            ClearInteraction();
         }
     }
 
