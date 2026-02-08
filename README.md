@@ -1,6 +1,10 @@
 Last Call Center 🎮
 An AI-powered apocalypse customer service game
 
+## Trailer
+
+[![Demo](https://i.imgur.com/CuaIjqg.png)](https://www.youtube.com/watch?v=iImXH4u5DOo)
+
 🏆 Global Supercell AI Game Hackathon
 Feb 6–8, 2026
 
@@ -147,3 +151,12 @@ TEAM
 
 Created during a 3-day hackathon sprint by passionate developers pushing the boundaries
 of AI-powered narrative gaming.
+
+## Contributors
+
+[![WolfhunterHUN](https://github.com/WolfhunterHUN.png?size=100)](https://github.com/WolfhunterHUN)
+[![papszii](https://github.com/papszii.png?size=100)](https://github.com/papszii)
+[![DeadWolf007](https://github.com/DeadWolf007.png?size=100)](https://github.com/DeadWolf007)
+
+
+
