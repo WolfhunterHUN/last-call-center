@@ -11315,6 +11315,7 @@ GameObject:
   m_Component:
   - component: {fileID: 640536233}
   - component: {fileID: 640536234}
+  - component: {fileID: 640536235}
   m_Layer: 0
   m_Name: Audio Source
   m_TagString: Untagged
@@ -11350,7 +11351,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 1420307631}
   m_PlayOnAwake: 1
-  m_Volume: 0.7
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -11394,7 +11395,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0.522
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -11434,6 +11435,25 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &640536235
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 640536232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8294f514beff4db4295a334f434ff37a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Mobilephonizer
+  audioSource: {fileID: 640536234}
+  lowFrequencyCutoff: 800
+  highFrequencyCutoff: 4000
+  distortionLevel: 0.5
+  volume: 0.8
+  staticNoise: {fileID: 0}
+  noiseVolume: 0.05
 --- !u!1 &642058222
 GameObject:
   m_ObjectHideFlags: 0
@@ -12268,6 +12288,7 @@ GameObject:
   m_Component:
   - component: {fileID: 708606717}
   - component: {fileID: 708606716}
+  - component: {fileID: 708606718}
   m_Layer: 0
   m_Name: Audio Source
   m_TagString: Untagged
@@ -12288,7 +12309,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 1420307631}
   m_PlayOnAwake: 1
-  m_Volume: 0.7
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -12332,7 +12353,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0.522
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -12387,6 +12408,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 674198249}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &708606718
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 708606715}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8294f514beff4db4295a334f434ff37a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Mobilephonizer
+  audioSource: {fileID: 708606716}
+  lowFrequencyCutoff: 800
+  highFrequencyCutoff: 4000
+  distortionLevel: 0.5
+  volume: 1
+  staticNoise: {fileID: 0}
+  noiseVolume: 0.05
 --- !u!1 &712528336
 GameObject:
   m_ObjectHideFlags: 0
@@ -13292,6 +13332,7 @@ GameObject:
   m_Component:
   - component: {fileID: 788292236}
   - component: {fileID: 788292235}
+  - component: {fileID: 788292237}
   m_Layer: 0
   m_Name: Audio Source
   m_TagString: Untagged
@@ -13312,7 +13353,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 1420307631}
   m_PlayOnAwake: 1
-  m_Volume: 0.7
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0
@@ -13356,7 +13397,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0.522
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -13411,6 +13452,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1069017098}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &788292237
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 788292234}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8294f514beff4db4295a334f434ff37a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Mobilephonizer
+  audioSource: {fileID: 788292235}
+  lowFrequencyCutoff: 800
+  highFrequencyCutoff: 4000
+  distortionLevel: 0.5
+  volume: 0.8
+  staticNoise: {fileID: 0}
+  noiseVolume: 0.05
 --- !u!1 &807364849
 GameObject:
   m_ObjectHideFlags: 0
@@ -13789,7 +13849,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 5fd33f985126a294b96715c9a20703dc, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.4
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -14619,7 +14679,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: 01b5744ba75ba3d458b358847dffd75e, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.4
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -18263,7 +18323,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 8300000, guid: c1679dc666915d44b83fc72fef363f85, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.4
+  m_Volume: 0.2
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -19941,18 +20001,6 @@ MonoBehaviour:
         m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
         m_MethodName: SetActive
         m_Mode: 6
-        m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
-          m_IntArgument: 0
-          m_FloatArgument: 0
-          m_StringArgument: 
-          m_BoolArgument: 1
-        m_CallState: 2
-      - m_Target: {fileID: 174939752}
-        m_TargetAssemblyTypeName: VideoNeocortexStarter, Assembly-CSharp
-        m_MethodName: StartConversation
-        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine

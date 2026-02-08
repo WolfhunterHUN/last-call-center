@@ -29,7 +29,7 @@ public class StressBarUI : MonoBehaviour
     [Tooltip("A háttér Image")]
     [SerializeField] private Image backgroundImage;
 
-    [Tooltip("Opcionális szöveg kijelző (pl. 'Stressz: 45%')")]
+    [Tooltip("Opcionális szöveg kijelző (pl. 'Stress: 45%')")]
     [SerializeField] private TMP_Text stressText;
 
     [Header("Auto Setup")]
@@ -37,13 +37,13 @@ public class StressBarUI : MonoBehaviour
     [SerializeField] private bool autoCreateUI = true;
 
     [Header("Megjelenés")]
-    [Tooltip("Normál stressz szín (alacsony)")]
+    [Tooltip("Normál stress szín (alacsony)")]
     [SerializeField] private Color normalColor = new Color(0.2f, 0.8f, 0.2f, 0.9f); // Zöld
 
-    [Tooltip("Közepes stressz szín")]
+    [Tooltip("Közepes stress szín")]
     [SerializeField] private Color warningColor = new Color(1f, 0.8f, 0f, 0.9f); // Sárga
 
-    [Tooltip("Veszélyes stressz szín (80+ felett)")]
+    [Tooltip("Veszélyes stress szín (80+ felett)")]
     [SerializeField] private Color dangerColor = new Color(1f, 0.15f, 0.15f, 0.9f); // Piros
 
     [Tooltip("Háttér szín")]
@@ -164,7 +164,7 @@ public class StressBarUI : MonoBehaviour
         // Szöveg frissítés
         if (stressText != null)
         {
-            stressText.text = $"Stressz: {Mathf.RoundToInt(stress)}%";
+            stressText.text = $"Stress: {Mathf.RoundToInt(stress)}%";
 
             // Szöveg szín is változik
             if (stress >= stressManager.DangerThreshold)
@@ -250,7 +250,7 @@ public class StressBarUI : MonoBehaviour
         textRect.offsetMin = Vector2.zero;
         textRect.offsetMax = Vector2.zero;
         stressText = textObj.AddComponent<TextMeshProUGUI>();
-        stressText.text = "Stressz: 0%";
+        stressText.text = "Stress: 0%";
         stressText.fontSize = 16;
         stressText.color = Color.white;
         stressText.alignment = TextAlignmentOptions.Center;
