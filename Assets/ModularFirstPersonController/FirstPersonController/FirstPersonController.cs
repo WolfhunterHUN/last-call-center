@@ -1,0 +1,1151 @@
+﻿// CHANGE LOG
+// 
+// CHANGES || version VERSION
+//
+// "Enable/Disable Headbob, Changed look rotations - should result in reduced camera jitters" || version 1.0.1
+// "Added interaction system with raycast, highlight, crosshair feedback, and UI mode toggle" || version 1.1.0
+
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems; // [ADDED v1.1.0] - Szükséges az EventSystem.SetSelectedGameObject-hez UI módban
+using TMPro; // [ADDED v1.1.0] - Szükséges az interakció szöveg megjelenítéséhez
+
+#if UNITY_EDITOR
+using UnityEditor;
+using System.Net;
+#endif
+
+public class FirstPersonController : MonoBehaviour
+{
+    private Rigidbody rb;
+
+    #region Camera Movement Variables
+
+    public Camera playerCamera;
+
+    public float fov = 60f;
+    public bool invertCamera = false;
+    public bool cameraCanMove = true;
+    public float mouseSensitivity = 2f;
+    public float maxLookAngle = 50f;
+
+    // Crosshair
+    public bool lockCursor = true;
+    public bool crosshair = true;
+    public Sprite crosshairImage;
+    public Color crosshairColor = Color.white;
+
+    // Internal Variables
+    private float yaw = 0.0f;
+    private float pitch = 0.0f;
+    private Image crosshairObject;
+
+    #region Camera Zoom Variables
+
+    public bool enableZoom = true;
+    public bool holdToZoom = false;
+    public KeyCode zoomKey = KeyCode.Mouse1;
+    public float zoomFOV = 30f;
+    public float zoomStepTime = 5f;
+
+    // Internal Variables
+    private bool isZoomed = false;
+
+    #endregion
+    #endregion
+
+    #region Movement Variables
+
+    public bool playerCanMove = true;
+    public float walkSpeed = 5f;
+    public float maxVelocityChange = 10f;
+
+    // Internal Variables
+    private bool isWalking = false;
+
+    #region Sprint
+
+    public bool enableSprint = true;
+    public bool unlimitedSprint = false;
+    public KeyCode sprintKey = KeyCode.LeftShift;
+    public float sprintSpeed = 7f;
+    public float sprintDuration = 5f;
+    public float sprintCooldown = .5f;
+    public float sprintFOV = 80f;
+    public float sprintFOVStepTime = 10f;
+
+    // Sprint Bar
+    public bool useSprintBar = true;
+    public bool hideBarWhenFull = true;
+    public Image sprintBarBG;
+    public Image sprintBar;
+    public float sprintBarWidthPercent = .3f;
+    public float sprintBarHeightPercent = .015f;
+
+    // Internal Variables
+    private CanvasGroup sprintBarCG;
+    private bool isSprinting = false;
+    private float sprintRemaining;
+    private float sprintBarWidth;
+    private float sprintBarHeight;
+    private bool isSprintCooldown = false;
+    private float sprintCooldownReset;
+
+    #endregion
+
+    #region Jump
+
+    public bool enableJump = true;
+    public KeyCode jumpKey = KeyCode.Space;
+    public float jumpPower = 5f;
+
+    // Internal Variables
+    private bool isGrounded = false;
+
+    #endregion
+
+    #region Crouch
+
+    public bool enableCrouch = true;
+    public bool holdToCrouch = true;
+    public KeyCode crouchKey = KeyCode.LeftControl;
+    public float crouchHeight = .75f;
+    public float speedReduction = .5f;
+
+    // Internal Variables
+    private bool isCrouched = false;
+    private Vector3 originalScale;
+
+    #endregion
+    #endregion
+
+    #region Head Bob
+
+    public bool enableHeadBob = true;
+    public Transform joint;
+    public float bobSpeed = 10f;
+    public Vector3 bobAmount = new Vector3(.15f, .05f, 0f);
+
+    // Internal Variables
+    private Vector3 jointOriginalPos;
+    private float timer = 0;
+
+    #endregion
+
+    // ============================================================
+    // [ADDED v1.1.0] - Interaction System változók
+    // Raycast alapú interakció rendszer az InteractableObject komponensekkel
+    // ============================================================
+    #region Interaction Variables [ADDED v1.1.0]
+
+    [Header("Interakció rendszer")]
+    public bool enableInteraction = true;
+    public float interactionRange = 5f;
+    public LayerMask interactionLayerMask = ~0; // Minden layer alapból
+    public KeyCode interactKey = KeyCode.E;
+
+    [Header("Interakció UI")]
+    [Tooltip("TextMeshPro szöveg ami megjeleníti az objektum nevét és hint-et")]
+    public TMP_Text interactionText;
+
+    [Tooltip("Crosshair szín amikor interaktálható objektumra nézel")]
+    public Color crosshairInteractColor = Color.green;
+
+    // Internal Variables
+    private InteractableObject currentInteractable = null;
+    private Color crosshairDefaultColor;
+
+    #endregion
+
+    // ============================================================
+    // [ADDED v1.1.0] - UI Mode változók
+    // Kurzor feloldás UI elemek használatához (input field-ek, gombok, stb.)
+    // ============================================================
+    #region UI Mode Variables [ADDED v1.1.0]
+
+    [Header("UI Mód (kurzor feloldás)")]
+    [Tooltip("Gomb amivel feloldhatod a kurzort UI elemek használatához")]
+    public KeyCode uiModeKey = KeyCode.Tab;
+
+    /// <summary>
+    /// Igaz ha a játékos UI módban van (kurzor látható, kamera nem mozog)
+    /// </summary>
+    public bool IsInUIMode { get; private set; } = false;
+
+    #endregion
+
+    private void Awake()
+    {
+        rb = GetComponent<Rigidbody>();
+
+        crosshairObject = GetComponentInChildren<Image>();
+
+        // Set internal variables
+        playerCamera.fieldOfView = fov;
+        originalScale = transform.localScale;
+        jointOriginalPos = joint.localPosition;
+
+        if (!unlimitedSprint)
+        {
+            sprintRemaining = sprintDuration;
+            sprintCooldownReset = sprintCooldown;
+        }
+    }
+
+    void Start()
+    {
+        if (lockCursor)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+        }
+
+        if (crosshair)
+        {
+            crosshairObject.sprite = crosshairImage;
+            crosshairObject.color = crosshairColor;
+            crosshairDefaultColor = crosshairColor; // [ADDED v1.1.0] - Eredeti crosshair szín mentése a visszaállításhoz
+        }
+        else
+        {
+            crosshairObject.gameObject.SetActive(false);
+        }
+
+        // [ADDED v1.1.0] - Interakció text elrejtése induláskor
+        if (interactionText != null)
+        {
+            interactionText.gameObject.SetActive(false);
+        }
+
+        #region Sprint Bar
+
+        sprintBarCG = GetComponentInChildren<CanvasGroup>();
+
+        if (useSprintBar)
+        {
+            sprintBarBG.gameObject.SetActive(true);
+            sprintBar.gameObject.SetActive(true);
+
+            float screenWidth = Screen.width;
+            float screenHeight = Screen.height;
+
+            sprintBarWidth = screenWidth * sprintBarWidthPercent;
+            sprintBarHeight = screenHeight * sprintBarHeightPercent;
+
+            sprintBarBG.rectTransform.sizeDelta = new Vector3(sprintBarWidth, sprintBarHeight, 0f);
+            sprintBar.rectTransform.sizeDelta = new Vector3(sprintBarWidth - 2, sprintBarHeight - 2, 0f);
+
+            if (hideBarWhenFull)
+            {
+                sprintBarCG.alpha = 0;
+            }
+        }
+        else
+        {
+            sprintBarBG.gameObject.SetActive(false);
+            sprintBar.gameObject.SetActive(false);
+        }
+
+        #endregion
+    }
+
+    float camRotation;
+
+    private void Update()
+    {
+        // ============================================================
+        // [ADDED v1.1.0] - UI Mode Toggle kezelés
+        // Tab-bal váltás UI mód és játék mód között.
+        // UI módban az összes többi input le van tiltva (early return).
+        // ============================================================
+        #region UI Mode Toggle [ADDED v1.1.0]
+
+        if (Input.GetKeyDown(uiModeKey))
+        {
+            ToggleUIMode();
+        }
+
+        // Ha UI módban vagyunk, csak az Escape-et és a Tab-ot figyeljük
+        if (IsInUIMode)
+        {
+            // [ADDED v1.2.0] - Hatótáv ellenőrzés UI módban is fut
+            // Ha a játékos elsétál az objektumtól UI módban, az onExitRange triggerelődik
+            CheckExitRange();
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                ExitUIMode();
+            }
+            return; // Ne kezeljünk semmilyen más inputot UI módban
+        }
+
+        #endregion
+
+        #region Camera
+
+        // Control camera movement
+        if (cameraCanMove)
+        {
+            yaw = transform.localEulerAngles.y + Input.GetAxis("Mouse X") * mouseSensitivity;
+
+            if (!invertCamera)
+            {
+                pitch -= mouseSensitivity * Input.GetAxis("Mouse Y");
+            }
+            else
+            {
+                // Inverted Y
+                pitch += mouseSensitivity * Input.GetAxis("Mouse Y");
+            }
+
+            // Clamp pitch between lookAngle
+            pitch = Mathf.Clamp(pitch, -maxLookAngle, maxLookAngle);
+
+            transform.localEulerAngles = new Vector3(0, yaw, 0);
+            playerCamera.transform.localEulerAngles = new Vector3(pitch, 0, 0);
+        }
+
+        #region Camera Zoom
+
+        if (enableZoom)
+        {
+            // Changes isZoomed when key is pressed
+            // Behavior for toogle zoom
+            if (Input.GetKeyDown(zoomKey) && !holdToZoom && !isSprinting)
+            {
+                if (!isZoomed)
+                {
+                    isZoomed = true;
+                }
+                else
+                {
+                    isZoomed = false;
+                }
+            }
+
+            // Changes isZoomed when key is pressed
+            // Behavior for hold to zoom
+            if (holdToZoom && !isSprinting)
+            {
+                if (Input.GetKeyDown(zoomKey))
+                {
+                    isZoomed = true;
+                }
+                else if (Input.GetKeyUp(zoomKey))
+                {
+                    isZoomed = false;
+                }
+            }
+
+            // Lerps camera.fieldOfView to allow for a smooth transistion
+            if (isZoomed)
+            {
+                playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, zoomFOV, zoomStepTime * Time.deltaTime);
+            }
+            else if (!isZoomed && !isSprinting)
+            {
+                playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, fov, zoomStepTime * Time.deltaTime);
+            }
+        }
+
+        #endregion
+        #endregion
+
+        #region Sprint
+
+        if (enableSprint)
+        {
+            if (isSprinting)
+            {
+                isZoomed = false;
+                playerCamera.fieldOfView = Mathf.Lerp(playerCamera.fieldOfView, sprintFOV, sprintFOVStepTime * Time.deltaTime);
+
+                // Drain sprint remaining while sprinting
+                if (!unlimitedSprint)
+                {
+                    sprintRemaining -= 1 * Time.deltaTime;
+                    if (sprintRemaining <= 0)
+                    {
+                        isSprinting = false;
+                        isSprintCooldown = true;
+                    }
+                }
+            }
+            else
+            {
+                // Regain sprint while not sprinting
+                sprintRemaining = Mathf.Clamp(sprintRemaining += 1 * Time.deltaTime, 0, sprintDuration);
+            }
+
+            // Handles sprint cooldown 
+            // When sprint remaining == 0 stops sprint ability until hitting cooldown
+            if (isSprintCooldown)
+            {
+                sprintCooldown -= 1 * Time.deltaTime;
+                if (sprintCooldown <= 0)
+                {
+                    isSprintCooldown = false;
+                }
+            }
+            else
+            {
+                sprintCooldown = sprintCooldownReset;
+            }
+
+            // Handles sprintBar 
+            if (useSprintBar && !unlimitedSprint)
+            {
+                float sprintRemainingPercent = sprintRemaining / sprintDuration;
+                sprintBar.transform.localScale = new Vector3(sprintRemainingPercent, 1f, 1f);
+            }
+        }
+
+        #endregion
+
+        #region Jump
+
+        // Gets input and calls jump method
+        if (enableJump && Input.GetKeyDown(jumpKey) && isGrounded)
+        {
+            Jump();
+        }
+
+        #endregion
+
+        #region Crouch
+
+        if (enableCrouch)
+        {
+            if (Input.GetKeyDown(crouchKey) && !holdToCrouch)
+            {
+                Crouch();
+            }
+
+            if (Input.GetKeyDown(crouchKey) && holdToCrouch)
+            {
+                isCrouched = false;
+                Crouch();
+            }
+            else if (Input.GetKeyUp(crouchKey) && holdToCrouch)
+            {
+                isCrouched = true;
+                Crouch();
+            }
+        }
+
+        #endregion
+
+        CheckGround();
+
+        if (enableHeadBob)
+        {
+            HeadBob();
+        }
+
+        // [ADDED v1.1.0] - Interakció kezelés minden frame-ben
+        #region Interaction [ADDED v1.1.0]
+
+        if (enableInteraction)
+        {
+            HandleInteraction();
+        }
+
+        #endregion
+    }
+
+    void FixedUpdate()
+    {
+        // [ADDED v1.1.0] - Ne mozogjon UI módban
+        if (IsInUIMode) return;
+
+        #region Movement
+
+        if (playerCanMove)
+        {
+            // Calculate how fast we should be moving
+            Vector3 targetVelocity = new Vector3(Input.GetAxis("Horizontal"), 0, Input.GetAxis("Vertical"));
+
+            // Checks if player is walking and isGrounded
+            // Will allow head bob
+            if (targetVelocity.x != 0 || targetVelocity.z != 0 && isGrounded)
+            {
+                isWalking = true;
+            }
+            else
+            {
+                isWalking = false;
+            }
+
+            // All movement calculations shile sprint is active
+            if (enableSprint && Input.GetKey(sprintKey) && sprintRemaining > 0f && !isSprintCooldown)
+            {
+                targetVelocity = transform.TransformDirection(targetVelocity) * sprintSpeed;
+
+                // Apply a force that attempts to reach our target velocity
+                Vector3 velocity = rb.linearVelocity;
+                Vector3 velocityChange = (targetVelocity - velocity);
+                velocityChange.x = Mathf.Clamp(velocityChange.x, -maxVelocityChange, maxVelocityChange);
+                velocityChange.z = Mathf.Clamp(velocityChange.z, -maxVelocityChange, maxVelocityChange);
+                velocityChange.y = 0;
+
+                // Player is only moving when valocity change != 0
+                // Makes sure fov change only happens during movement
+                if (velocityChange.x != 0 || velocityChange.z != 0)
+                {
+                    isSprinting = true;
+
+                    if (isCrouched)
+                    {
+                        Crouch();
+                    }
+
+                    if (hideBarWhenFull && !unlimitedSprint)
+                    {
+                        sprintBarCG.alpha += 5 * Time.deltaTime;
+                    }
+                }
+
+                rb.AddForce(velocityChange, ForceMode.VelocityChange);
+            }
+            // All movement calculations while walking
+            else
+            {
+                isSprinting = false;
+
+                if (hideBarWhenFull && sprintRemaining == sprintDuration)
+                {
+                    sprintBarCG.alpha -= 3 * Time.deltaTime;
+                }
+
+                targetVelocity = transform.TransformDirection(targetVelocity) * walkSpeed;
+
+                // Apply a force that attempts to reach our target velocity
+                Vector3 velocity = rb.linearVelocity;
+                Vector3 velocityChange = (targetVelocity - velocity);
+                velocityChange.x = Mathf.Clamp(velocityChange.x, -maxVelocityChange, maxVelocityChange);
+                velocityChange.z = Mathf.Clamp(velocityChange.z, -maxVelocityChange, maxVelocityChange);
+                velocityChange.y = 0;
+
+                rb.AddForce(velocityChange, ForceMode.VelocityChange);
+            }
+        }
+
+        #endregion
+    }
+
+    // ============================================================
+    // [ADDED v1.1.0] - Interaction Methods
+    // Raycast-tal detektálja az InteractableObject-eket a kamera közepéről,
+    // kezeli a highlight-ot, crosshair szín változást, UI szöveget, és az input-ot.
+    // ============================================================
+    #region Interaction Methods [ADDED v1.1.0]
+
+    /// <summary>
+    /// Raycast-tal ellenőrzi hogy van-e interaktálható objektum a nézet közepén,
+    /// kezeli a highlight-ot, crosshair szín változást, és az interakció inputot.
+    /// </summary>
+    private void HandleInteraction()
+    {
+        Ray ray = playerCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
+
+        if (Physics.Raycast(ray, out RaycastHit hit, interactionRange, interactionLayerMask))
+        {
+            InteractableObject interactable = hit.collider.GetComponent<InteractableObject>();
+
+            // Ha nincs a collideren, próbáljuk a parent-en (hasznos compound collider-eknél)
+            if (interactable == null)
+            {
+                interactable = hit.collider.GetComponentInParent<InteractableObject>();
+            }
+
+            if (interactable != null && interactable.isInteractable)
+            {
+                // [FIX v1.2.1] - Collider legközelebbi pontjával mérünk, nem hit.point-tal
+                // Így az interactionDistance és exitRangeDistance konzisztensen működik
+                float distance = GetDistanceToInteractable(interactable);
+                if (distance <= interactable.interactionDistance)
+                {
+                    // Új objektumra néztünk
+                    if (currentInteractable != interactable)
+                    {
+                        // Előző highlight eltávolítása
+                        // [FIX v1.2.1] - Elnézéskor NEM hívunk ExitRange-et, csak ha tényleg kilépünk a hatótávból
+                        if (currentInteractable != null)
+                        {
+                            currentInteractable.RemoveHighlight();
+                            // Csak akkor hívjuk az ExitRange-et ha tényleg kívül vagyunk a hatótávon
+                            float prevDistance = GetDistanceToInteractable(currentInteractable);
+                            if (prevDistance > currentInteractable.EffectiveExitRange)
+                            {
+                                currentInteractable.ExitRange();
+                            }
+                        }
+
+                        currentInteractable = interactable;
+                        currentInteractable.Highlight();
+                        Debug.Log($"[Interaction] Raycast talált: {interactable.interactableName} (távolság: {distance:F2}m)");
+                    }
+
+                    // UI frissítés
+                    ShowInteractionUI(interactable);
+                    SetCrosshairColor(crosshairInteractColor);
+
+                    // Interakció: E gomb VAGY bal egérgomb
+                    if (Input.GetKeyDown(interactKey))
+                    {
+                        Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva -> Interact: {interactable.interactableName}");
+                        interactable.Interact();
+                    }
+                    else if (Input.GetMouseButtonDown(0))
+                    {
+                        Debug.Log($"[Interaction] Bal egérgomb lenyomva -> Interact: {interactable.interactableName}");
+                        interactable.Interact();
+                    }
+
+                    return; // Találtunk interaktálhatót, ne menjünk tovább
+                }
+            }
+        }
+
+        // Nincs interaktálható objektum a nézetben (elnéztünk vagy túl messze vagyunk)
+        // [FIX v1.2.1] - Elnézéskor ellenőrizzük, hogy a hatótávon belül vagyunk-e még
+        if (currentInteractable != null)
+        {
+            float distToCurrentInteractable = GetDistanceToInteractable(currentInteractable);
+            if (distToCurrentInteractable > currentInteractable.EffectiveExitRange)
+            {
+                // Tényleg kívül vagyunk a hatótávon -> ExitRange
+                if (Input.GetKeyDown(interactKey))
+                {
+                    Debug.Log($"[Interaction] '{interactKey}' gomb lenyomva, de nincs interaktálható objektum a nézetben");
+                }
+                else if (Input.GetMouseButtonDown(0))
+                {
+                    Debug.Log("[Interaction] Bal egérgomb lenyomva, de nincs interaktálható objektum a nézetben");
+                }
+                ClearInteraction();
+            }
+            else
+            {
+                // Még a hatótávon belül vagyunk, csak elnéztünk -> highlight levétel, de NEM ExitRange
+                currentInteractable.RemoveHighlight();
+                if (interactionText != null)
+                {
+                    interactionText.gameObject.SetActive(false);
+                }
+                SetCrosshairColor(crosshairDefaultColor);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Megjeleníti az interakció UI szöveget
+    /// </summary>
+    private void ShowInteractionUI(InteractableObject interactable)
+    {
+        if (interactionText != null)
+        {
+            interactionText.gameObject.SetActive(true);
+            interactionText.text = $"<b>{interactable.interactableName}</b>\n<size=80%>{interactable.interactHint}</size>";
+        }
+    }
+
+    /// <summary>
+    /// Elrejti az interakció UI-t és visszaállítja a crosshair-t.
+    /// Ha volt aktív interaktálható, meghívja az ExitRange() eseményét.
+    /// </summary>
+    private void ClearInteraction()
+    {
+        if (currentInteractable != null)
+        {
+            currentInteractable.RemoveHighlight();
+            currentInteractable.ExitRange(); // [ADDED v1.1.0] - Hatótáv elhagyás esemény meghívása
+            currentInteractable = null;
+        }
+
+        if (interactionText != null)
+        {
+            interactionText.gameObject.SetActive(false);
+        }
+
+        SetCrosshairColor(crosshairDefaultColor);
+    }
+
+    /// <summary>
+    /// Crosshair szín beállítása
+    /// </summary>
+    private void SetCrosshairColor(Color color)
+    {
+        if (crosshair && crosshairObject != null)
+        {
+            crosshairObject.color = color;
+        }
+    }
+
+    // [ADDED v1.2.0] - Folyamatos hatótáv ellenőrzés (UI módban is működik)
+    /// <summary>
+    /// Ellenőrzi hogy a játékos még az aktuális interaktálható objektum
+    /// exitRangeDistance hatótávján belül van-e. Ha nem, meghívja az ExitRange()-et
+    /// és kilép UI módból. Ez a metódus UI módban is fut, így ha a játékos
+    /// elsétál a terminál/telefon mellől, automatikusan deaktiválódik.
+    /// </summary>
+    private void CheckExitRange()
+    {
+        if (currentInteractable == null) return;
+
+        // [FIX v1.2.1] - Collider legközelebbi pontjával mérünk
+        float distance = GetDistanceToInteractable(currentInteractable);
+        float exitDistance = currentInteractable.EffectiveExitRange;
+
+        if (distance > exitDistance)
+        {
+            Debug.Log($"[Interaction] Kilépési hatótávon kívül: {currentInteractable.interactableName} (távolság: {distance:F2}m > exitRange: {exitDistance:F2}m)");
+
+            // UI módból kilépés ha aktív
+            if (IsInUIMode)
+            {
+                ExitUIMode();
+            }
+
+            ClearInteraction();
+        }
+    }
+
+    // [ADDED v1.2.1] - Konzisztens távolságmérés helper
+    /// <summary>
+    /// Kiszámítja a távolságot a kamera és az interaktálható objektum között.
+    /// A collider legközelebbi pontját használja (ClosestPoint), nem a transform.position-t,
+    /// így a mért távolság megegyezik azzal amit a raycast hit.point is mérne.
+    /// Ez megoldja azt a problémát amikor a collider felszíne közel van de a pivot messze.
+    /// </summary>
+    private float GetDistanceToInteractable(InteractableObject interactable)
+    {
+        Collider col = interactable.GetComponentInChildren<Collider>();
+        if (col != null)
+        {
+            Vector3 closestPoint = col.ClosestPoint(playerCamera.transform.position);
+            return Vector3.Distance(playerCamera.transform.position, closestPoint);
+        }
+        // Fallback ha nincs collider (nem kellene előfordulnia)
+        return Vector3.Distance(playerCamera.transform.position, interactable.transform.position);
+    }
+
+    #endregion
+
+    // ============================================================
+    // [ADDED v1.1.0] - UI Mode Methods
+    // Kurzor feloldás és kamera/mozgás letiltás UI elemek használatához.
+    // Tab-bal váltható, Escape-pel is kiléphet. 
+    // Használd input field-ek, monitorok, UI panelek interakciójához.
+    // ============================================================
+    #region UI Mode Methods [ADDED v1.1.0]
+
+    /// <summary>
+    /// Váltás UI mód és játék mód között.
+    /// UI módban a kurzor látható és a kamera/mozgás le van tiltva.
+    /// Használd input field-ek, monitorok, UI panelek interakciójához.
+    /// </summary>
+    public void ToggleUIMode()
+    {
+        if (IsInUIMode)
+        {
+            ExitUIMode();
+        }
+        else
+        {
+            EnterUIMode();
+        }
+    }
+
+    /// <summary>
+    /// Belépés UI módba - kurzor megjelenik, kamera és mozgás leáll
+    /// </summary>
+    public void EnterUIMode()
+    {
+        IsInUIMode = true;
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+        cameraCanMove = false;
+        playerCanMove = false;
+        Debug.Log("[UI Mode] BELÉPÉS - kurzor feloldva, kamera és mozgás letiltva"); // [ADDED v1.1.0] - Debug
+
+        // Crosshair elrejtése UI módban
+        if (crosshairObject != null)
+        {
+            crosshairObject.gameObject.SetActive(false);
+        }
+
+        // Interakció UI elrejtése
+        ClearInteraction();
+    }
+
+    /// <summary>
+    /// Kilépés UI módból - kurzor eltűnik, kamera és mozgás visszaáll
+    /// </summary>
+    public void ExitUIMode()
+    {
+        IsInUIMode = false;
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        cameraCanMove = true;
+        playerCanMove = true;
+        Debug.Log("[UI Mode] KILÉPÉS - kurzor zárolva, kamera és mozgás visszaállítva"); // [ADDED v1.1.0] - Debug
+
+        // Crosshair visszaállítása
+        if (crosshair && crosshairObject != null)
+        {
+            crosshairObject.gameObject.SetActive(true);
+        }
+
+        // Deselect bármi amit kiválasztottunk (input field-ek, stb.)
+        EventSystem.current?.SetSelectedGameObject(null);
+    }
+
+    #endregion
+
+    // Sets isGrounded based on a raycast sent straigth down from the player object
+    private void CheckGround()
+    {
+        Vector3 origin = new Vector3(transform.position.x, transform.position.y - (transform.localScale.y * .5f), transform.position.z);
+        Vector3 direction = transform.TransformDirection(Vector3.down);
+        float distance = .75f;
+
+        if (Physics.Raycast(origin, direction, out RaycastHit hit, distance))
+        {
+            Debug.DrawRay(origin, direction * distance, Color.red);
+            isGrounded = true;
+        }
+        else
+        {
+            isGrounded = false;
+        }
+    }
+
+    private void Jump()
+    {
+        // Adds force to the player rigidbody to jump
+        if (isGrounded)
+        {
+            rb.AddForce(0f, jumpPower, 0f, ForceMode.Impulse);
+            isGrounded = false;
+        }
+
+        // When crouched and using toggle system, will uncrouch for a jump
+        if (isCrouched && !holdToCrouch)
+        {
+            Crouch();
+        }
+    }
+
+    private void Crouch()
+    {
+        // Stands player up to full height
+        // Brings walkSpeed back up to original speed
+        if (isCrouched)
+        {
+            transform.localScale = new Vector3(originalScale.x, originalScale.y, originalScale.z);
+            walkSpeed /= speedReduction;
+
+            isCrouched = false;
+        }
+        // Crouches player down to set height
+        // Reduces walkSpeed
+        else
+        {
+            transform.localScale = new Vector3(originalScale.x, crouchHeight, originalScale.z);
+            walkSpeed *= speedReduction;
+
+            isCrouched = true;
+        }
+    }
+
+    private void HeadBob()
+    {
+        if (isWalking)
+        {
+            // Calculates HeadBob speed during sprint
+            if (isSprinting)
+            {
+                timer += Time.deltaTime * (bobSpeed + sprintSpeed);
+            }
+            // Calculates HeadBob speed during crouched movement
+            else if (isCrouched)
+            {
+                timer += Time.deltaTime * (bobSpeed * speedReduction);
+            }
+            // Calculates HeadBob speed during walking
+            else
+            {
+                timer += Time.deltaTime * bobSpeed;
+            }
+            // Applies HeadBob movement
+            joint.localPosition = new Vector3(jointOriginalPos.x + Mathf.Sin(timer) * bobAmount.x, jointOriginalPos.y + Mathf.Sin(timer) * bobAmount.y, jointOriginalPos.z + Mathf.Sin(timer) * bobAmount.z);
+        }
+        else
+        {
+            // Resets when play stops moving
+            timer = 0;
+            joint.localPosition = new Vector3(Mathf.Lerp(joint.localPosition.x, jointOriginalPos.x, Time.deltaTime * bobSpeed), Mathf.Lerp(joint.localPosition.y, jointOriginalPos.y, Time.deltaTime * bobSpeed), Mathf.Lerp(joint.localPosition.z, jointOriginalPos.z, Time.deltaTime * bobSpeed));
+        }
+    }
+}
+
+
+
+// Custom Editor
+#if UNITY_EDITOR
+[CustomEditor(typeof(FirstPersonController)), InitializeOnLoadAttribute]
+public class FirstPersonControllerEditor : Editor
+{
+    FirstPersonController fpc;
+    SerializedObject SerFPC;
+
+    private void OnEnable()
+    {
+        fpc = (FirstPersonController)target;
+        SerFPC = new SerializedObject(fpc);
+    }
+
+    public override void OnInspectorGUI()
+    {
+        SerFPC.Update();
+
+        EditorGUILayout.Space();
+        GUILayout.Label("Modular First Person Controller", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 16 });
+        GUILayout.Label("By Jess Case", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal, fontSize = 12 });
+        GUILayout.Label("version 1.1.0 - Interaction Update", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Normal, fontSize = 12 }); // [MODIFIED v1.1.0] - Verzió szám frissítve
+        EditorGUILayout.Space();
+
+        #region Camera Setup
+
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("Camera Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.playerCamera = (Camera)EditorGUILayout.ObjectField(new GUIContent("Camera", "Camera attached to the controller."), fpc.playerCamera, typeof(Camera), true);
+        fpc.fov = EditorGUILayout.Slider(new GUIContent("Field of View", "The camera's view angle. Changes the player camera directly."), fpc.fov, fpc.zoomFOV, 179f);
+        fpc.cameraCanMove = EditorGUILayout.ToggleLeft(new GUIContent("Enable Camera Rotation", "Determines if the camera is allowed to move."), fpc.cameraCanMove);
+
+        GUI.enabled = fpc.cameraCanMove;
+        fpc.invertCamera = EditorGUILayout.ToggleLeft(new GUIContent("Invert Camera Rotation", "Inverts the up and down movement of the camera."), fpc.invertCamera);
+        fpc.mouseSensitivity = EditorGUILayout.Slider(new GUIContent("Look Sensitivity", "Determines how sensitive the mouse movement is."), fpc.mouseSensitivity, .1f, 10f);
+        fpc.maxLookAngle = EditorGUILayout.Slider(new GUIContent("Max Look Angle", "Determines the max and min angle the player camera is able to look."), fpc.maxLookAngle, 40, 90);
+        GUI.enabled = true;
+
+        fpc.lockCursor = EditorGUILayout.ToggleLeft(new GUIContent("Lock and Hide Cursor", "Turns off the cursor visibility and locks it to the middle of the screen."), fpc.lockCursor);
+
+        fpc.crosshair = EditorGUILayout.ToggleLeft(new GUIContent("Auto Crosshair", "Determines if the basic crosshair will be turned on, and sets is to the center of the screen."), fpc.crosshair);
+
+        // Only displays crosshair options if crosshair is enabled
+        if (fpc.crosshair)
+        {
+            EditorGUI.indentLevel++;
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel(new GUIContent("Crosshair Image", "Sprite to use as the crosshair."));
+            fpc.crosshairImage = (Sprite)EditorGUILayout.ObjectField(fpc.crosshairImage, typeof(Sprite), false);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            fpc.crosshairColor = EditorGUILayout.ColorField(new GUIContent("Crosshair Color", "Determines the color of the crosshair."), fpc.crosshairColor);
+            EditorGUILayout.EndHorizontal();
+            EditorGUI.indentLevel--;
+        }
+
+        EditorGUILayout.Space();
+
+        #region Camera Zoom Setup
+
+        GUILayout.Label("Zoom", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+
+        fpc.enableZoom = EditorGUILayout.ToggleLeft(new GUIContent("Enable Zoom", "Determines if the player is able to zoom in while playing."), fpc.enableZoom);
+
+        GUI.enabled = fpc.enableZoom;
+        fpc.holdToZoom = EditorGUILayout.ToggleLeft(new GUIContent("Hold to Zoom", "Requires the player to hold the zoom key instead if pressing to zoom and unzoom."), fpc.holdToZoom);
+        fpc.zoomKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("Zoom Key", "Determines what key is used to zoom."), fpc.zoomKey);
+        fpc.zoomFOV = EditorGUILayout.Slider(new GUIContent("Zoom FOV", "Determines the field of view the camera zooms to."), fpc.zoomFOV, .1f, fpc.fov);
+        fpc.zoomStepTime = EditorGUILayout.Slider(new GUIContent("Step Time", "Determines how fast the FOV transitions while zooming in."), fpc.zoomStepTime, .1f, 10f);
+        GUI.enabled = true;
+
+        #endregion
+
+        #endregion
+
+        #region Movement Setup
+
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("Movement Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.playerCanMove = EditorGUILayout.ToggleLeft(new GUIContent("Enable Player Movement", "Determines if the player is allowed to move."), fpc.playerCanMove);
+
+        GUI.enabled = fpc.playerCanMove;
+        fpc.walkSpeed = EditorGUILayout.Slider(new GUIContent("Walk Speed", "Determines how fast the player will move while walking."), fpc.walkSpeed, .1f, fpc.sprintSpeed);
+        GUI.enabled = true;
+
+        EditorGUILayout.Space();
+
+        #region Sprint
+
+        GUILayout.Label("Sprint", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+
+        fpc.enableSprint = EditorGUILayout.ToggleLeft(new GUIContent("Enable Sprint", "Determines if the player is allowed to sprint."), fpc.enableSprint);
+
+        GUI.enabled = fpc.enableSprint;
+        fpc.unlimitedSprint = EditorGUILayout.ToggleLeft(new GUIContent("Unlimited Sprint", "Determines if 'Sprint Duration' is enabled. Turning this on will allow for unlimited sprint."), fpc.unlimitedSprint);
+        fpc.sprintKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("Sprint Key", "Determines what key is used to sprint."), fpc.sprintKey);
+        fpc.sprintSpeed = EditorGUILayout.Slider(new GUIContent("Sprint Speed", "Determines how fast the player will move while sprinting."), fpc.sprintSpeed, fpc.walkSpeed, 20f);
+
+        //GUI.enabled = !fpc.unlimitedSprint;
+        fpc.sprintDuration = EditorGUILayout.Slider(new GUIContent("Sprint Duration", "Determines how long the player can sprint while unlimited sprint is disabled."), fpc.sprintDuration, 1f, 20f);
+        fpc.sprintCooldown = EditorGUILayout.Slider(new GUIContent("Sprint Cooldown", "Determines how long the recovery time is when the player runs out of sprint."), fpc.sprintCooldown, .1f, fpc.sprintDuration);
+        //GUI.enabled = true;
+
+        fpc.sprintFOV = EditorGUILayout.Slider(new GUIContent("Sprint FOV", "Determines the field of view the camera changes to while sprinting."), fpc.sprintFOV, fpc.fov, 179f);
+        fpc.sprintFOVStepTime = EditorGUILayout.Slider(new GUIContent("Step Time", "Determines how fast the FOV transitions while sprinting."), fpc.sprintFOVStepTime, .1f, 20f);
+
+        fpc.useSprintBar = EditorGUILayout.ToggleLeft(new GUIContent("Use Sprint Bar", "Determines if the default sprint bar will appear on screen."), fpc.useSprintBar);
+
+        // Only displays sprint bar options if sprint bar is enabled
+        if (fpc.useSprintBar)
+        {
+            EditorGUI.indentLevel++;
+
+            EditorGUILayout.BeginHorizontal();
+            fpc.hideBarWhenFull = EditorGUILayout.ToggleLeft(new GUIContent("Hide Full Bar", "Hides the sprint bar when sprint duration is full, and fades the bar in when sprinting. Disabling this will leave the bar on screen at all times when the sprint bar is enabled."), fpc.hideBarWhenFull);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel(new GUIContent("Bar BG", "Object to be used as sprint bar background."));
+            fpc.sprintBarBG = (Image)EditorGUILayout.ObjectField(fpc.sprintBarBG, typeof(Image), true);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.PrefixLabel(new GUIContent("Bar", "Object to be used as sprint bar foreground."));
+            fpc.sprintBar = (Image)EditorGUILayout.ObjectField(fpc.sprintBar, typeof(Image), true);
+            EditorGUILayout.EndHorizontal();
+
+
+            EditorGUILayout.BeginHorizontal();
+            fpc.sprintBarWidthPercent = EditorGUILayout.Slider(new GUIContent("Bar Width", "Determines the width of the sprint bar."), fpc.sprintBarWidthPercent, .1f, .5f);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            fpc.sprintBarHeightPercent = EditorGUILayout.Slider(new GUIContent("Bar Height", "Determines the height of the sprint bar."), fpc.sprintBarHeightPercent, .001f, .025f);
+            EditorGUILayout.EndHorizontal();
+            EditorGUI.indentLevel--;
+        }
+        GUI.enabled = true;
+
+        EditorGUILayout.Space();
+
+        #endregion
+
+        #region Jump
+
+        GUILayout.Label("Jump", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+
+        fpc.enableJump = EditorGUILayout.ToggleLeft(new GUIContent("Enable Jump", "Determines if the player is allowed to jump."), fpc.enableJump);
+
+        GUI.enabled = fpc.enableJump;
+        fpc.jumpKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("Jump Key", "Determines what key is used to jump."), fpc.jumpKey);
+        fpc.jumpPower = EditorGUILayout.Slider(new GUIContent("Jump Power", "Determines how high the player will jump."), fpc.jumpPower, .1f, 20f);
+        GUI.enabled = true;
+
+        EditorGUILayout.Space();
+
+        #endregion
+
+        #region Crouch
+
+        GUILayout.Label("Crouch", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleLeft, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+
+        fpc.enableCrouch = EditorGUILayout.ToggleLeft(new GUIContent("Enable Crouch", "Determines if the player is allowed to crouch."), fpc.enableCrouch);
+
+        GUI.enabled = fpc.enableCrouch;
+        fpc.holdToCrouch = EditorGUILayout.ToggleLeft(new GUIContent("Hold To Crouch", "Requires the player to hold the crouch key instead if pressing to crouch and uncrouch."), fpc.holdToCrouch);
+        fpc.crouchKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("Crouch Key", "Determines what key is used to crouch."), fpc.crouchKey);
+        fpc.crouchHeight = EditorGUILayout.Slider(new GUIContent("Crouch Height", "Determines the y scale of the player object when crouched."), fpc.crouchHeight, .1f, 1);
+        fpc.speedReduction = EditorGUILayout.Slider(new GUIContent("Speed Reduction", "Determines the percent 'Walk Speed' is reduced by. 1 being no reduction, and .5 being half."), fpc.speedReduction, .1f, 1);
+        GUI.enabled = true;
+
+        #endregion
+
+        #endregion
+
+        #region Head Bob
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("Head Bob Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.enableHeadBob = EditorGUILayout.ToggleLeft(new GUIContent("Enable Head Bob", "Determines if the camera will bob while the player is walking."), fpc.enableHeadBob);
+
+
+        GUI.enabled = fpc.enableHeadBob;
+        fpc.joint = (Transform)EditorGUILayout.ObjectField(new GUIContent("Camera Joint", "Joint object position is moved while head bob is active."), fpc.joint, typeof(Transform), true);
+        fpc.bobSpeed = EditorGUILayout.Slider(new GUIContent("Speed", "Determines how often a bob rotation is completed."), fpc.bobSpeed, 1, 20);
+        fpc.bobAmount = EditorGUILayout.Vector3Field(new GUIContent("Bob Amount", "Determines the amount the joint moves in both directions on every axes."), fpc.bobAmount);
+        GUI.enabled = true;
+
+        #endregion
+
+        // ============================================================
+        // [ADDED v1.1.0] - Interaction Setup szekció a Custom Editorban
+        // ============================================================
+        #region Interaction Setup [ADDED v1.1.0]
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("Interaction Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.enableInteraction = EditorGUILayout.ToggleLeft(new GUIContent("Enable Interaction", "Determines if the player can interact with InteractableObject components."), fpc.enableInteraction);
+
+        GUI.enabled = fpc.enableInteraction;
+        fpc.interactionRange = EditorGUILayout.Slider(new GUIContent("Interaction Range", "Maximum raycast distance for detecting interactable objects."), fpc.interactionRange, 1f, 20f);
+        fpc.interactKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("Interact Key", "Key used to interact (left mouse click also works)."), fpc.interactKey);
+
+        EditorGUILayout.Space();
+        fpc.interactionText = (TMP_Text)EditorGUILayout.ObjectField(new GUIContent("Interaction Text", "TextMeshPro text element for displaying interaction prompts."), fpc.interactionText, typeof(TMP_Text), true);
+        fpc.crosshairInteractColor = EditorGUILayout.ColorField(new GUIContent("Crosshair Interact Color", "Color the crosshair changes to when looking at an interactable."), fpc.crosshairInteractColor);
+
+        // Layer mask - SerializedProperty-vel kell kezelni
+        SerializedProperty layerMaskProp = SerFPC.FindProperty("interactionLayerMask");
+        if (layerMaskProp != null)
+        {
+            EditorGUILayout.PropertyField(layerMaskProp, new GUIContent("Interaction Layers", "Which layers to check for interactable objects."));
+        }
+        GUI.enabled = true;
+
+        #endregion
+
+        // ============================================================
+        // [ADDED v1.1.0] - UI Mode Setup szekció a Custom Editorban
+        // ============================================================
+        #region UI Mode Setup [ADDED v1.1.0]
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("", GUI.skin.horizontalSlider);
+        GUILayout.Label("UI Mode Setup", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13 }, GUILayout.ExpandWidth(true));
+        EditorGUILayout.Space();
+
+        fpc.uiModeKey = (KeyCode)EditorGUILayout.EnumPopup(new GUIContent("UI Mode Key", "Key to toggle UI mode (unlocks cursor for clicking UI elements, input fields, etc.)"), fpc.uiModeKey);
+
+        EditorGUILayout.HelpBox("UI Mode unlocks the cursor and disables camera/movement so the player can interact with UI elements like input fields, buttons, etc. Press the key again or Escape to exit.", MessageType.Info);
+
+        #endregion
+
+        //Sets any changes from the prefab
+        if (GUI.changed)
+        {
+            EditorUtility.SetDirty(fpc);
+            Undo.RecordObject(fpc, "FPC Change");
+            SerFPC.ApplyModifiedProperties();
+        }
+    }
+
+}
+
+#endif
