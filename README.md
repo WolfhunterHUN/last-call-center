@@ -9,6 +9,14 @@ An AI-powered apocalypse customer service game
 Feb 6–8, 2026
 
 --------------------------------------------------
+
+IMPORTANT!
+
+You need Neocortex API to play the game.
+https://docs.neocortex.link/
+
+--------------------------------------------------
+
 PROJECT OVERVIEW
 
 Last Call Center is a first-person, narrative-driven, AI-assisted game created during the
